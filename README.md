@@ -1,2 +1,2 @@
 # kaggle-connectx
-Deep RL algorithm based on Alpha(Zero) Go algorithm.
+Implementation of AlphaZero RL algorithm by Deepmind with PyTorch for the game Connect4
