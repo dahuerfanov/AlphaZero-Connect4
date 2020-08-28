@@ -103,15 +103,17 @@ def executeEpisode(nnet):
             return samples_s, samples_dist, samples_v
 
 
-def policyIter():
-    random.seed(1)
+def policyIter(load_path=None, save_path="/content/drive/My Drive/ML out/cnn_best_model.pth"):
+    random.seed(0)
 
     nnet_1 = NNet("nnet1")
-    # m_state_dict = torch.load("cnn_best_model.pth")
-    # nnet_1.load_state_dict(m_state_dict)
-    print(nnet_1)
     nnet_2 = NNet("nnet2")
-    # nnet_2.load_state_dict(m_state_dict)
+    if load_path != None:
+        m_state_dict = torch.load(load_path)
+        nnet_1.load_state_dict(m_state_dict)
+        nnet_2.load_state_dict(m_state_dict)
+    print(nnet_1)
+
     if torch.cuda.is_available():
         nnet_1 = nnet_1.cuda()
         nnet_1.criterion_p = nnet_1.criterion_p.cuda()
@@ -143,25 +145,25 @@ def policyIter():
 
         if SAMPLE_SIZE < idx_new_eps:
             X, Y_v, Y_p = [], [], []
-            for i in random.sample([i for i in range(idx_new_eps)], SAMPLE_SIZE):
+            for i in random.sample([j for j in range(idx_new_eps)], SAMPLE_SIZE):
                 X.append(samples_s[i])
                 Y_v.append(samples_v[i])
                 Y_p.append(samples_dist[i])
-            X = X.extend(samples_s[idx_new_eps:])
-            Y_v = Y_v.extend(samples_v[idx_new_eps:])
-            Y_p = Y_p.extend(samples_dist[idx_new_eps:])
+            X.extend(samples_s[idx_new_eps:])
+            Y_v.extend(samples_v[idx_new_eps:])
+            Y_p.extend(samples_dist[idx_new_eps:])
         else:
             X = samples_s
             Y_v = samples_v
             Y_p = samples_dist
 
         print("It #: ", it)
-        nnet_2.run(X, Y_v, Y_p)
+        nnet_2.run(torch.stack(X), torch.stack(Y_v), torch.stack(Y_p))
         print("calculating pit rate...")
         rate = get_win_percentage(nnet_2, nnet_1)
         print("rate nnet2 vs nnet1: ", rate)
         if rate > THRESHOLD:
             nnet_1 = nnet_2
-            torch.save(nnet_1, "cnn_best_model.pt")
-            torch.save(nnet_1.state_dict(), "cnn_best_model.pth")
+            # torch.save(nnet_1, "/content/sample_data/cnn_best_model.pt")
+            torch.save(nnet_1.state_dict(), save_path)
             print("saving new model!!!!!!!")

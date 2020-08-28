@@ -57,13 +57,15 @@ class MCTS:
 
         max_u, best_a = -1e10, -1
         for a in range(COLS):
-            self.P[s0][a] = (1 - EPS_N) * self.P[s0][a] + EPS_N * noise[0][a]
+            p_exploit = (1 - EPS_N) * self.P[s0][a] + EPS_N * noise[0][a]
 
             if torch.eq(s[0][ROWS - 1][a], ZERO):
-                u = self.Q[s0][a] + C_PUCT * self.P[s0][a] * math.sqrt(sum(self.N[s0])) / (1 + self.N[s0][a])
+                u = self.Q[s0][a] + C_PUCT * p_exploit * math.sqrt(sum(self.N[s0])) / (1 + self.N[s0][a])
                 if u > max_u:
                     max_u = u
                     best_a = a
+            else:
+                self.Q[s0][a] = -1
 
         a = best_a
         row = step(s, a)
