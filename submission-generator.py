@@ -1,38 +1,29 @@
 from learntools.core import binder
+
 binder.bind(globals())
 from learntools.game_ai.ex4 import *
 
-!pip install kaggle-environments==1.2.1
+!pip
+install
+kaggle - environments == 1.2
+.1
 
-import os
-import random
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-%matplotlib inline
+% matplotlib
+inline
 
+from kaggle_environments import make
 
-from kaggle_environments import make, evaluate
-from gym import spaces, Env
-
-import tensorflow as tf
 from tensorflow import keras
 
-
-from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Convolution2D, Flatten, Dense, Input, Dropout
-from tensorflow.keras.optimizers import Adam, SGD
-from tensorflow.keras import initializers
+from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import model_from_json
 
 import math
 from copy import copy
-from scipy.stats import dirichlet
 
-
-
-    
-    
 ROWS = 6
 COLS = 7
 C_PUCT = 0.1
@@ -48,39 +39,44 @@ ALPHA_N = 0.03
 EPS_N = 0.25
 MAX_SAMPLES_MEM = 20000
 SAMPLE_SIZE = 2560
-    
+
+
 def getModelNnet(name):
-    
-    inputs = Input( shape=(ROWS, COLS), name="input" ) 
-    x  = Flatten(name="flat")(inputs) 
-    x  = Dense(units=128, activation="relu", name="dense1", kernel_initializer='random_uniform', bias_initializer='zeros')(x)
+    inputs = Input(shape=(ROWS, COLS), name="input")
+    x = Flatten(name="flat")(inputs)
+    x = Dense(units=128, activation="relu", name="dense1", kernel_initializer='random_uniform',
+              bias_initializer='zeros')(x)
     x = Dropout(0.2)(x)
-    x  = Dense(units=64, activation="relu", name="dense2", kernel_initializer='random_uniform', bias_initializer='zeros')(x)
+    x = Dense(units=64, activation="relu", name="dense2", kernel_initializer='random_uniform',
+              bias_initializer='zeros')(x)
     x = Dropout(0.2)(x)
-    
-    x1  = Dense(units=32, activation="relu", name="dense11", kernel_initializer='random_uniform', bias_initializer='zeros')(x)
+
+    x1 = Dense(units=32, activation="relu", name="dense11", kernel_initializer='random_uniform',
+               bias_initializer='zeros')(x)
     x1 = Dropout(0.1)(x1)
-    x1  = Dense(units=16, activation="relu", name="dense12", kernel_initializer='random_uniform', bias_initializer='zeros')(x1)
+    x1 = Dense(units=16, activation="relu", name="dense12", kernel_initializer='random_uniform',
+               bias_initializer='zeros')(x1)
     x1 = Dropout(0.1)(x1)
-    output_v = Dense(units=1, activation="tanh", name="out_v", kernel_initializer='random_uniform', bias_initializer='zeros')(x1)
-    
-    x2  = Dense(units=32, activation="relu", name="dense21", kernel_initializer='random_uniform', bias_initializer='zeros')(x)
+    output_v = Dense(units=1, activation="tanh", name="out_v", kernel_initializer='random_uniform',
+                     bias_initializer='zeros')(x1)
+
+    x2 = Dense(units=32, activation="relu", name="dense21", kernel_initializer='random_uniform',
+               bias_initializer='zeros')(x)
     x2 = Dropout(0.1)(x2)
-    output_dist = Dense(units=COLS, activation="softmax", name="out_dist", kernel_initializer='random_uniform', bias_initializer='zeros')(x2)
-    
-    model =  keras.Model(inputs=inputs, outputs=[output_v, output_dist], name=name) 
-    
-    model.compile(optimizer=SGD(learning_rate=LR_SGD, momentum=MOMENTUM_SGD), 
-                       loss={"out_v": "MSE","out_dist": "categorical_crossentropy"},
-                       loss_weights={"out_v": 1.0, "out_dist": 1.0},
-                       metrics=["accuracy"]
-                      )
+    output_dist = Dense(units=COLS, activation="softmax", name="out_dist", kernel_initializer='random_uniform',
+                        bias_initializer='zeros')(x2)
+
+    model = keras.Model(inputs=inputs, outputs=[output_v, output_dist], name=name)
+
+    model.compile(optimizer=SGD(learning_rate=LR_SGD, momentum=MOMENTUM_SGD),
+                  loss={"out_v": "MSE", "out_dist": "categorical_crossentropy"},
+                  loss_weights={"out_v": 1.0, "out_dist": 1.0},
+                  metrics=["accuracy"]
+                  )
     return model
 
 
-
 def generateSubmissionFile():
-    
     my_agent = '''
 
 import os
@@ -96,7 +92,7 @@ from copy import copy
 from scipy.stats import dirichlet
         
     '''
-    
+
     my_agent += '''
 
 ROWS = 6
@@ -176,27 +172,31 @@ def stateToString(s):
     return sStr
 
         '''
-    
+
     fc_layers = dict()
     hidden_units = ["dense1", "dense2", "dense11", "dense12", "out_v", "dense21", "out_dist"]
     # Get all hidden layers' weights
     for i in range(len(hidden_units)):
         fc_layers[hidden_units[i]] = [
             # weights
-            str(list(np.round( nnet.get_layer(hidden_units[i]).weights[0].numpy().tolist() , 10))).replace('array(', '').replace(')', '').replace(' ', '').replace('\n', ''),
-            
+            str(list(np.round(nnet.get_layer(hidden_units[i]).weights[0].numpy().tolist(), 10))).replace('array(',
+                                                                                                         '').replace(
+                ')', '').replace(' ', '').replace('\n', ''),
+
             # bias
-            str(list(np.round( nnet.get_layer(hidden_units[i]).weights[1].numpy().tolist() , 10))).replace('array(', '').replace(')', '').replace(' ', '').replace('\n', '')
+            str(list(np.round(nnet.get_layer(hidden_units[i]).weights[1].numpy().tolist(), 10))).replace('array(',
+                                                                                                         '').replace(
+                ')', '').replace(' ', '').replace('\n', '')
         ]
     for i in range(len(hidden_units)):
         my_agent += '''
 hl{}_w = np.array({}, dtype=np.float32)
 
-'''.format(i+1, fc_layers[hidden_units[i]][0])
+'''.format(i + 1, fc_layers[hidden_units[i]][0])
         my_agent += '''
 hl{}_b = np.array({}, dtype=np.float32)
-'''.format(i+1, fc_layers[hidden_units[i]][1])
-        
+'''.format(i + 1, fc_layers[hidden_units[i]][1])
+
     my_agent += '''
         
 class MCTS:
@@ -306,7 +306,6 @@ def agent(obs, config):
             
     '''
     return my_agent
-
 
 
 nnet = getModelNnet("nnet")

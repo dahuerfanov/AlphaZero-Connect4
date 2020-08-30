@@ -1,14 +1,12 @@
-import numpy as np
 import torch
 
-from constants import ROWS, COLS, deltas, ZERO
+from constants import ROWS, COLS, deltas
 
 
-def gameReward(s):
-    done = True
+def gameReward(s, ch=0):
     for i in range(ROWS):
         for j in range(COLS):
-            if not torch.eq(s[0][i][j], ZERO):
+            if s[ch][i][j] != 0:
                 for k in range(len(deltas)):
                     inARow = True
                     for p in range(3):
@@ -18,44 +16,34 @@ def gameReward(s):
                         if j + deltas[k][1][p] < 0 or j + deltas[k][1][p] >= COLS:
                             inARow = False
                             break
-                        if not torch.eq(s[0][i][j], s[0][i + deltas[k][0][p]][j + deltas[k][1][p]]):
+                        if s[ch][i][j] != s[ch][i + deltas[k][0][p]][j + deltas[k][1][p]]:
                             inARow = False
                             break
                     if inARow:
                         return torch.tensor(1.), True
-            else:
-                done = False
 
-    return torch.tensor(0.), done
+    return torch.tensor(0.), torch.sum(s) == ROWS * COLS
 
 
-def step(s, a):
-    ones = np.count_nonzero(s.numpy() == 1.)
-    twos = np.count_nonzero(s.numpy() == 2.)
-    for row in range(ROWS):
-        if torch.eq(s[0][row][a], ZERO):
-            if ones > twos:
-                s[0][row][a] = 2
-            else:
-                s[0][row][a] = 1
+def step(s, a, ch=0):
+    row = ROWS - 1
+    while row >= 0:
+        if s[0][row][a] + s[1][row][a] == 0:
+            s[ch][row][a] = 1
             return row
-
-    return -1
+        row -= 1
+    return row
 
 
 def reflect(s):
-    sr = torch.zeros((1, ROWS, COLS), dtype=torch.float32)
-    for row in range(ROWS):
-        for col in range(COLS):
-            sr[0][row][col] = s[0][row][COLS - col - 1]
-
-    return sr
+    return torch.flip(s.clone(), [2])
 
 
 def stateToString(s):
     sStr = ""
-    for i in range(ROWS):
-        for j in range(COLS):
-            sStr += str(int(s[0][i][j]))
+    for ch in range(2):
+        for i in range(ROWS):
+            for j in range(COLS):
+                sStr += str(int(s[ch][i][j]))
 
     return sStr

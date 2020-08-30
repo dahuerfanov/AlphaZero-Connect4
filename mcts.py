@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from scipy.stats import dirichlet
 
-from constants import ROWS, COLS, ALPHA_N, EPS_N, C_PUCT, ZERO
+from constants import COLS, ALPHA_N, EPS_N, C_PUCT
 from game import stateToString, gameReward, reflect, step
 
 
@@ -24,7 +24,7 @@ class MCTS:
             v: the negative of the value of the current state s
         """
 
-        v, done = gameReward(s)
+        v, done = gameReward(s, 1)
         if done: return v
 
         x = torch.stack([s]).detach()
@@ -40,13 +40,13 @@ class MCTS:
         P = _P[0].cpu()
         v = _v[0].cpu()
         s0 = stateToString(s)
-        s1 = stateToString(reflect(s))
 
         if not s0 in self.N:
             self.Q[s0] = [0] * COLS
             self.N[s0] = np.array([0] * COLS)
             self.P[s0] = P.numpy()
 
+            s1 = stateToString(reflect(s))
             self.Q[s1] = self.Q[s0][::-1]
             self.N[s1] = self.N[s0][::-1]
             self.P[s1] = self.P[s0][::-1]
@@ -55,12 +55,12 @@ class MCTS:
 
         noise = dirichlet.rvs(np.array([ALPHA_N] * COLS), size=1)
 
-        max_u, best_a = -1e10, -1
+        max_u, best_a, total_sqr = -1e10, -1, math.sqrt(sum(self.N[s0]))
         for a in range(COLS):
             p_exploit = (1 - EPS_N) * self.P[s0][a] + EPS_N * noise[0][a]
 
-            if torch.eq(s[0][ROWS - 1][a], ZERO):
-                u = self.Q[s0][a] + C_PUCT * p_exploit * math.sqrt(sum(self.N[s0])) / (1 + self.N[s0][a])
+            if s[0][0][a] + s[1][0][a] == 0:
+                u = self.Q[s0][a] + C_PUCT * p_exploit * total_sqr / (1 + self.N[s0][a])
                 if u > max_u:
                     max_u = u
                     best_a = a
@@ -70,7 +70,7 @@ class MCTS:
         a = best_a
         row = step(s, a)
         assert (row >= 0)
-        v = self.search(s, nnet)
+        v = self.search(torch.flip(s, [0]), nnet)
         s[0][row][a] = 0  # step back
 
         self.Q[s0][a] = (self.N[s0][a] * self.Q[s0][a] + v) / (self.N[s0][a] + 1)

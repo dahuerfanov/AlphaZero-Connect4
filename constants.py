@@ -1,21 +1,19 @@
-import torch
-
 ROWS = 6
 COLS = 7
-C_PUCT = 0.45
+C_PUCT = 4
 EPOCHS = 30
 MOMENTUM_SGD = 0.9
-LR_SGD = 2*1e-3
-NUM_ITERS = 1000
-NUM_EPS = 16
+LR_SGD = 2 * 1e-3
+WD_SGD = 4e-3
+NUM_ITERS = 100
+NUM_EPS = 50
 NUM_EPS_PIT = 21
 BATCH = 32
-NUM_MCTS_SIMS = 42
+NUM_MCTS_SIMS = 64
 THRESHOLD = 0.54
-ALPHA_N = 0.03
+ALPHA_N = 1
 EPS_N = 0.25
-MAX_GAMES_MEM = 300
-SAMPLE_SIZE = 640
+MAX_GAMES_MEM = 250
+SAMPLE_SIZE = 500
 EPS = 1e-6
-ZERO = torch.tensor(0.)
-deltas = [ [ [0,0,0],[1,2,3] ], [ [1,2,3],[0,0,0] ], [ [1,2,3],[1,2,3] ], [ [-1,-2,-3],[1,2,3] ] ]
+deltas = [[[0, 0, 0], [1, 2, 3]], [[1, 2, 3], [0, 0, 0]], [[1, 2, 3], [1, 2, 3]], [[-1, -2, -3], [1, 2, 3]]]
