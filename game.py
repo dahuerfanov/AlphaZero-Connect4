@@ -20,7 +20,7 @@ def gameReward(s, ch=0):
                             inARow = False
                             break
                     if inARow:
-                        return torch.tensor(1.), True
+                        return torch.tensor(1. / (0.5 * torch.sum(s).item() - 1.5) + 0.5), True
 
     return torch.tensor(0.), torch.sum(s) == ROWS * COLS
 

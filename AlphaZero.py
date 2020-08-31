@@ -6,27 +6,22 @@ from NNet import NNet
 from constants import ROWS, COLS, NUM_MCTS_SIMS, NUM_EPS, NUM_ITERS, MAX_GAMES_MEM, SAMPLE_SIZE, THRESHOLD, NUM_EPS_PIT
 from game import gameReward, step, reflect, stateToString
 from mcts import MCTS
+import numpy as np
 
 
 def simulateGame(nnet1, nnet2):
     s = torch.zeros((2, ROWS, COLS), dtype=torch.float32)
 
-    mcts1 = MCTS()
-    mcts2 = MCTS()
-
     nnet = nnet1
-    mcts = mcts1
 
     flag = 0
 
     while True:
-        for _ in range(NUM_MCTS_SIMS):
-            mcts.search(s, nnet)
 
         best_a, max_pi = -1, -1e10
-        pi = mcts.pi(s)
+        _, pi = nnet.predict(s)
         for a in range(COLS):
-            if s[0][0][a] == 0:
+            if s[0][0][a] + s[1][0][a] == 0:
                 if max_pi < pi[a]:
                     best_a = a
                     max_pi = pi[a]
@@ -36,16 +31,14 @@ def simulateGame(nnet1, nnet2):
         r, done = gameReward(s)
         if done:
             if flag:
-                return float(r)
+                return np.round(float(r))
             else:
-                return float(-r)
+                return np.round(float(-r))
 
         if flag == 0:
             nnet = nnet2
-            mcts = mcts2
         else:
             nnet = nnet1
-            mcts = mcts1
 
         s = torch.flip(s, [0])
         flag = 1 - flag
@@ -53,6 +46,8 @@ def simulateGame(nnet1, nnet2):
 
 # To learn more about the evaluate() function, check out the documentation here: (insert link here)
 def get_win_percentage(nnet1, nnet2, n_rounds=NUM_EPS_PIT):
+    nnet1.eval()
+    nnet2.eval()
     count = 0
     for _ in range(n_rounds // 2):
         count += max(simulateGame(nnet1, nnet2), 0)
@@ -64,6 +59,8 @@ def get_win_percentage(nnet1, nnet2, n_rounds=NUM_EPS_PIT):
 
 
 def executeEpisode(nnet):
+    nnet.eval()
+
     samples_s = []
     samples_v = []
 
@@ -84,8 +81,8 @@ def executeEpisode(nnet):
             a += 1
             acc += mcts.pi(s)[a]
 
-        if s[0][0][a] != 0:
-            a = random.choice([col for col in range(COLS) if s[0][0][col] == 0])
+        if s[0][0][a] + s[1][0][a] != 0:
+            a = random.choice([col for col in range(COLS) if s[0][0][col] + s[1][0][col] == 0])
         step(s, a)
         r, done = gameReward(s)
         if done:
@@ -105,7 +102,8 @@ def executeEpisode(nnet):
             s = torch.flip(s, [0])
 
 
-def policyIter(load_path=None, save_path="cnn_best_model_v3.pth", save_path_work="cnn_best_model_v3_work.pth"):
+def policyIter(load_path=None, save_path="cnn_best_model_v4.pth",
+               save_path_work="cnn_best_model_v4_work.pth"):
     random.seed(0)
 
     nnet_1 = NNet("nnet1")
@@ -173,7 +171,7 @@ def policyIter(load_path=None, save_path="cnn_best_model_v3.pth", save_path_work
             samples_unique = stats_s_c
 
         X, Y_v, Y_p = [], [], []
-        for s in stats_s_c:
+        for s in samples_unique:
             X.append(stats_s_board[s])
             Y_v.append(stats_s_v[s])
             Y_p.append(stats_s_p[s])
@@ -187,8 +185,7 @@ def policyIter(load_path=None, save_path="cnn_best_model_v3.pth", save_path_work
             nnet_1 = nnet_2
             torch.save(nnet_1.state_dict(), save_path)
             print("saving new model!!!!!!!")
-        
+
         torch.save(nnet_2.state_dict(), save_path_work)
         nnet_2 = NNet("nnet2")
         nnet_2.load_state_dict(torch.load(save_path_work))
-        
