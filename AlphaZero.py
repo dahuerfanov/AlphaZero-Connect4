@@ -105,7 +105,7 @@ def executeEpisode(nnet):
             s = torch.flip(s, [0])
 
 
-def policyIter(load_path=None, save_path="cnn_best_model_v3.pth"):
+def policyIter(load_path=None, save_path="cnn_best_model_v3.pth", save_path_work="cnn_best_model_v3_work.pth"):
     random.seed(0)
 
     nnet_1 = NNet("nnet1")
@@ -115,15 +115,6 @@ def policyIter(load_path=None, save_path="cnn_best_model_v3.pth"):
         nnet_1.load_state_dict(m_state_dict)
         nnet_2.load_state_dict(m_state_dict)
     print(nnet_1)
-
-    if torch.cuda.is_available():
-        nnet_1 = nnet_1.cuda()
-        nnet_1.criterion_p = nnet_1.criterion_p.cuda()
-        nnet_1.criterion_v = nnet_1.criterion_v.cuda()
-
-        nnet_2 = nnet_2.cuda()
-        nnet_2.criterion_p = nnet_2.criterion_p.cuda()
-        nnet_2.criterion_v = nnet_2.criterion_v.cuda()
 
     samples_s = []
     samples_dist = []
@@ -172,11 +163,10 @@ def policyIter(load_path=None, save_path="cnn_best_model_v3.pth"):
                 samples_v = samples_v[sizes[0]:]
                 sizes = sizes[1:]
 
-        if SAMPLE_SIZE < len(stats_s_c):
+        if SAMPLE_SIZE < idx_new_eps:
             samples_unique = set()
-            stats_s_list = list(stats_s_c.keys())
-            for i in random.sample([j for j in range(len(stats_s_c))], SAMPLE_SIZE):
-                samples_unique.add(stats_s_list[i])
+            for i in random.sample([j for j in range(idx_new_eps)], SAMPLE_SIZE):
+                samples_unique.add(stateToString(samples_s[i]))
             for i in range(idx_new_eps, len(samples_s)):
                 samples_unique.add(stateToString(samples_s[i]))
         else:
@@ -197,3 +187,8 @@ def policyIter(load_path=None, save_path="cnn_best_model_v3.pth"):
             nnet_1 = nnet_2
             torch.save(nnet_1.state_dict(), save_path)
             print("saving new model!!!!!!!")
+        
+        torch.save(nnet_2.state_dict(), save_path_work)
+        nnet_2 = NNet("nnet2")
+        nnet_2.load_state_dict(torch.load(save_path_work))
+        

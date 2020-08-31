@@ -54,6 +54,7 @@ class NNet(Module):
         self.criterion_p = CategoricalCrossEntropy()
         self.criterion_v = MSELoss()
         if torch.cuda.is_available():
+            self = self.cuda()
             self.criterion_p = self.criterion_p.cuda()
             self.criterion_v = self.criterion_v.cuda()
 
