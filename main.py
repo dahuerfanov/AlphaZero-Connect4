@@ -1,3 +1,3 @@
 from AlphaZero import policyIter
 
-policyIter()
+policyIter("cnn_best_model_v4.pth")

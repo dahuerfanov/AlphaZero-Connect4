@@ -18,7 +18,7 @@ class MCTS:
         self.P = dict()
         self.N = dict()
 
-    def search(self, s, nnet):
+    def search(self, s, nnet, c_puct=C_PUCT):
         """
          Returns:
             v: the negative of the value of the current state s
@@ -27,24 +27,13 @@ class MCTS:
         v, done = gameReward(s, 1)
         if done: return v
 
-        x = torch.stack([s]).detach()
-        # converting the data into GPU format
-        if torch.cuda.is_available():
-            x = x.cuda()
-
-            # ========forward pass=====================================
-        with torch.no_grad():
-            nnet.eval()
-            _v, _P = nnet(x)
-
-        P = _P[0].cpu()
-        v = _v[0].cpu()
+        v, P = nnet.predict(s)
         s0 = stateToString(s)
 
         if not s0 in self.N:
             self.Q[s0] = [0] * COLS
             self.N[s0] = np.array([0] * COLS)
-            self.P[s0] = P.numpy()
+            self.P[s0] = P
 
             s1 = stateToString(reflect(s))
             self.Q[s1] = self.Q[s0][::-1]
@@ -60,7 +49,7 @@ class MCTS:
             p_exploit = (1 - EPS_N) * self.P[s0][a] + EPS_N * noise[0][a]
 
             if s[0][0][a] + s[1][0][a] == 0:
-                u = self.Q[s0][a] + C_PUCT * p_exploit * total_sqr / (1 + self.N[s0][a])
+                u = self.Q[s0][a] + c_puct * p_exploit * total_sqr / (1 + self.N[s0][a])
                 if u > max_u:
                     max_u = u
                     best_a = a

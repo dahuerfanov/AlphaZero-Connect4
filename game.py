@@ -20,7 +20,7 @@ def gameReward(s, ch=0):
                             inARow = False
                             break
                     if inARow:
-                        return torch.tensor(1.), True
+                        return torch.tensor(1./(0.5*torch.sum(s).item() - 1.5) +0.5), True
 
     return torch.tensor(0.), torch.sum(s) == ROWS * COLS
 
@@ -42,8 +42,8 @@ def reflect(s):
 def stateToString(s):
     sStr = ""
     for ch in range(2):
-        for i in range(ROWS):
-            for j in range(COLS):
-                sStr += str(int(s[ch][i][j]))
+      for i in range(ROWS):
+          for j in range(COLS):
+              sStr += str(int(s[ch][i][j]))
 
     return sStr

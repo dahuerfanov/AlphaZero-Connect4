@@ -37,7 +37,7 @@ class NNet(Module):
             ReLU(inplace=True),
             Flatten(),
             Linear(in_features=ROWS * COLS, out_features=32),
-            Dropout(p=0.3, inplace=True),
+            Dropout(p=0.35, inplace=True),
             Linear(in_features=32, out_features=1),
             Tanh()
         )
@@ -67,9 +67,23 @@ class NNet(Module):
         x2 = self.p_layers(x0)
         return x1, x2
 
+    def predict(self, s):
+        x = torch.stack([s]).detach()
+        # converting the data into GPU format
+        if torch.cuda.is_available():
+            x = x.cuda()
+        with torch.no_grad():
+            x0 = self.cnn_layers(x)
+            x1 = self.v_layers(x0).cpu()
+            x2 = self.p_layers(x0).cpu()
+        return x1[0].detach().item(), x2[0].detach().numpy()
+
     def train_batch(self, x_train, v_train, p_train):
 
         self.train()
+
+        # clearing the Gradients of the model parameters
+        self.optimizer.zero_grad()
 
         x_train = Variable(x_train, requires_grad=True)
         v_train = Variable(v_train, requires_grad=True)
@@ -78,9 +92,6 @@ class NNet(Module):
         # ========forward pass=====================================
         v_output_train, p_output_train = self(x_train)
 
-        # clearing the Gradients of the model parameters
-        self.optimizer.zero_grad()
-
         v_loss_train = self.criterion_v(v_output_train.reshape(list(v_output_train.size())[0]), v_train)
         p_loss_train = self.criterion_p(p_output_train, p_train)
         loss_train = v_loss_train + p_loss_train
@@ -88,10 +99,10 @@ class NNet(Module):
         # computing the updated weights of all the model parameters
         loss_train.backward()
         self.optimizer.step()
-        self.optimizer.zero_grad()
 
         return v_loss_train.item(), p_loss_train.item(), \
-               (torch.round(v_output_train.reshape(list(v_output_train.size())[0])) == v_train).float().sum().item()
+               (torch.round(v_output_train.reshape(list(v_output_train.size())[0])) == torch.round(
+                   v_train)).float().sum().item()
 
     def validate(self, x, v, p):
 
@@ -105,7 +116,7 @@ class NNet(Module):
         p_loss = self.criterion_p(p_output, p)
 
         return v_loss.item(), p_loss.item(), \
-               (torch.round(v_output.reshape(list(v_output.size())[0])) == v).float().sum().item()
+               (torch.round(v_output.reshape(list(v_output.size())[0])) == torch.round(v)).float().sum().item()
 
     def run(self, X, Y_v, Y_p):
 
