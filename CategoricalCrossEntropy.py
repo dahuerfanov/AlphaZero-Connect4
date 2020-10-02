@@ -20,10 +20,6 @@ class CategoricalCrossEntropy(_Loss):
         res = torch.tensor(0.)
         eps = torch.tensor(EPS)
         div = torch.tensor(1. * dims[0])
-        if torch.cuda.is_available():
-            res = res.cuda()
-            eps = eps.cuda()
-            div = div.cuda()
 
         for i in range(dims[0]):
             for x in range(dims[1]):
