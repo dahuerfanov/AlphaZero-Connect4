@@ -60,7 +60,6 @@ def simulateGame(agent1, agent2):
         flag = 1 - flag
 
 
-# To learn more about the evaluate() function, check out the documentation here: (insert link here)
 def get_win_percentage(agent1, agent2, n_rounds=NUM_EPS_PIT):
     agent1.nnet.eval()
     agent2.nnet.eval()

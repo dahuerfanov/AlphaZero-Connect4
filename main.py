@@ -4,7 +4,7 @@ from AlphaZero import policyIter
 
 # for GPU
 if torch.cuda.is_available():
-    device = torch.cuda.device(0)
+    device = torch.device("cuda:0")
     print("Using GPU!", torch.cuda.get_device_name(None))
 else:
     device = torch.device("cpu")
