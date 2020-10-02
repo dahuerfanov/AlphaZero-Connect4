@@ -5,7 +5,7 @@ import torch
 from scipy.stats import dirichlet
 
 from constants import COLS, ALPHA_N, EPS_N, C_PUCT
-from game import stateToString, gameReward, reflect, step
+from game import gameReward, reflect, step, stateToInt
 
 
 class MCTS:
@@ -28,14 +28,14 @@ class MCTS:
         if done: return v
 
         v, P = nnet.predict(s)
-        s0 = stateToString(s)
+        s0 = stateToInt(s)
 
         if not s0 in self.N:
             self.Q[s0] = [0] * COLS
             self.N[s0] = np.array([0] * COLS)
             self.P[s0] = P
 
-            s1 = stateToString(reflect(s))
+            s1 = stateToInt(reflect(s))
             self.Q[s1] = self.Q[s0][::-1]
             self.N[s1] = self.N[s0][::-1]
             self.P[s1] = self.P[s0][::-1]
@@ -67,7 +67,17 @@ class MCTS:
 
         return -v
 
-    def pi(self, s, requires_grad=False):
-        s0 = stateToString(s)
+    def pi(self, s, tau=1, requires_grad=False):
+
+        s0 = stateToInt(s)
         p = self.N[s0]
-        return torch.tensor(data=p / sum(self.N[s0]), requires_grad=requires_grad)
+        bestAs = np.array(np.argwhere(p == np.max(p))).flatten()
+        bestA = np.random.choice(bestAs)
+        if tau == 0:
+            p = [0] * COLS
+            p[bestA] = 1
+            return torch.tensor(data=p, requires_grad=requires_grad, device=torch.device("cpu"))
+        else:
+            counts = [x ** (1. / tau) for x in p]
+            counts_sum = sum(counts)
+            return torch.tensor(data=[x / counts_sum for x in counts], requires_grad=requires_grad, device=torch.device("cpu"))

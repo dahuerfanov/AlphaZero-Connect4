@@ -1,31 +1,32 @@
 import random
-
 import torch
-
-from NNet import NNet
-from constants import ROWS, COLS, NUM_MCTS_SIMS, NUM_EPS, NUM_ITERS, MAX_GAMES_MEM, SAMPLE_SIZE, THRESHOLD, NUM_EPS_PIT
-from game import gameReward, step, reflect, stateToString
-from mcts import MCTS
 import numpy as np
+from NNet import NNet
+from constants import ROWS, COLS, NUM_MCTS_SIMS, NUM_EPS, NUM_ITERS, MAX_GAMES_MEM, SAMPLE_SIZE, THRESHOLD, NUM_EPS_PIT, N_THRESHOLD_EXP
+from game import gameReward, step, reflect, stateToInt
+from mcts import MCTS
+from utils import save_obj, load_obj
 
 
-def simulateGame(nnet1, nnet2):
-    s = torch.zeros((2, ROWS, COLS), dtype=torch.float32)
+class Agent:
 
-    mcts1 = MCTS()
-    mcts2 = MCTS()
+    def __init__(self, nn_name, device):
+        self.nnet = NNet(nn_name, device)
+        self.mcts = MCTS()
 
-    nnet = nnet1
-    mcts = mcts1
 
-    flag = 0
+def simulateGame(agent1, agent2):
+    s = torch.zeros((2, ROWS, COLS), dtype=torch.float32, device=torch.device("cpu"))
+
+    agent = agent1
+    flag = 1
 
     while True:
         for _ in range(NUM_MCTS_SIMS):
-            mcts.search(s, nnet, C_PUCT_PLAY)
+            agent.mcts.search(s, agent.nnet)
 
         best_a, max_pi = -1, -1e10
-        pi = mcts.pi(s)
+        pi = agent.mcts.pi(s, tau=0)
         for a in range(COLS):
             if s[0][0][a] + s[1][0][a] == 0:
                 if max_pi < pi[a]:
@@ -36,58 +37,69 @@ def simulateGame(nnet1, nnet2):
         step(s, a)
         r, done = gameReward(s)
         if done:
-            if flag:
-                return float(r)
+            if flag == 1:
+                if r > 0:
+                    return 1
+                else:
+                    return 0
             else:
-                return float(-r)
+                if r > 0:
+                    return -1
+                else:
+                    return 0
 
-        if flag == 0:
-            nnet = nnet2
-            mcts = mcts2
+        if flag == 1:
+            agent = agent2
         else:
-            nnet = nnet1
-            mcts = mcts1
+            agent = agent1
 
         s = torch.flip(s, [0])
         flag = 1 - flag
 
 
 # To learn more about the evaluate() function, check out the documentation here: (insert link here)
-def get_win_percentage(nnet1, nnet2, n_rounds=NUM_EPS_PIT):
-    nnet1.eval()
-    nnet2.eval()
+def get_win_percentage(agent1, agent2, n_rounds=NUM_EPS_PIT):
+    agent1.nnet.eval()
+    agent2.nnet.eval()
     count = 0
+    tot = 0
     for _ in range(n_rounds // 2):
-        count += max(simulateGame(nnet1, nnet2), 0)
+        sg = simulateGame(agent1, agent2)
+        count += max(sg, 0)
+        if sg != 0:
+            tot += 1
 
     for _ in range(n_rounds // 2, n_rounds):
-        count += max(-simulateGame(nnet2, nnet1), 0)
+        sg = simulateGame(agent2, agent1)
+        count += max(-sg, 0)
+        if sg != 0:
+            tot += 1
 
-    return count / n_rounds
+    if tot == 0:
+        return 0.5, 0
+    else:
+        return count / tot, tot
 
 
-def executeEpisode(nnet):
-    nnet.eval()
+def executeEpisode(agent):
+    agent.nnet.eval()
 
     samples_s = []
     samples_v = []
 
-    s = torch.zeros((2, ROWS, COLS), dtype=torch.float32)
-    mcts = MCTS()
+    s = torch.zeros((2, ROWS, COLS), dtype=torch.float32, device=torch.device("cpu"))
+    step_count = 0
 
     while True:
         for _ in range(NUM_MCTS_SIMS):
-            mcts.search(s, nnet)
+            agent.mcts.search(s, agent.nnet)
         samples_s.append(s.clone())
 
-        x = random.random()
-        a = -1
-        acc = 0
-        while a + 1 < COLS:
-            if x < acc:
-                break
-            a += 1
-            acc += mcts.pi(s)[a]
+        step_count += 1
+        tau = int(step_count <= N_THRESHOLD_EXP)
+
+        pi = agent.mcts.pi(s, tau=tau).numpy()
+        a = np.random.choice(COLS, p=pi)
 
         if s[0][0][a] + s[1][0][a] != 0:
             a = random.choice([col for col in range(COLS) if s[0][0][col] + s[1][0][col] == 0])
@@ -95,14 +107,14 @@ def executeEpisode(nnet):
         r, done = gameReward(s)
         if done:
             for _ in range(len(samples_s)):
-                samples_v.append(r.clone())
+                samples_v.append(torch.tensor(r, requires_grad=False, device=torch.device("cpu")))
                 r = r * (-1)
             samples_v = samples_v[::-1]
 
             last = len(samples_s)
             for i in range(last):
                 samples_s.append(reflect(samples_s[i]))
-            samples_dist = [mcts.pi(s_i) for s_i in samples_s]
+            samples_dist = [agent.mcts.pi(s_i) for s_i in samples_s]
             samples_v = samples_v * 2
 
             return samples_s, samples_dist, samples_v
@@ -110,33 +122,42 @@ def executeEpisode(nnet):
             s = torch.flip(s, [0])
 
 
-def policyIter(load_path=None, save_path="edge_cnn_best_model_v4.pth",
-               save_path_work="edge_cnn_best_model_v4_work.pth"):
+
+
+
+def policyIter(work_path, load_path_model=None, name_cnn_model="nnet", device=torch.device('cpu')):
+
     random.seed(0)
-
-    nnet_1 = NNet("nnet1")
-    nnet_2 = NNet("nnet2")
-    if load_path != None:
-        m_state_dict = torch.load(load_path)
-        nnet_1.load_state_dict(m_state_dict)
-        nnet_2.load_state_dict(m_state_dict)
-    print(nnet_1)
-
-    samples_s = []
-    samples_dist = []
-    samples_v = []
-    sizes = []
-    stats_s_c = dict()
-    stats_s_p = dict()
-    stats_s_v = dict()
-    stats_s_board = dict()
+    agent1 = Agent(name_cnn_model, device)
+    if load_path_model != None:
+        m_state_dict = torch.load(load_path_model, map_location=device)
+        agent1.nnet.load_state_dict(m_state_dict)
+        samples_s = load_obj(work_path, "structures/samples_s")
+        samples_dist = load_obj(work_path, "structures/samples_dist")
+        samples_v = load_obj(work_path, "structures/samples_v")
+        sizes = load_obj(work_path, "structures/sizes")
+        stats_s_c = load_obj(work_path, "structures/stats_s_c")
+        stats_s_p = load_obj(work_path, "structures/stats_s_p")
+        stats_s_v = load_obj(work_path, "structures/stats_s_v")
+        stats_s_board = load_obj(work_path, "structures/stats_s_board")
+    else:
+        samples_s = []
+        samples_dist = []
+        samples_v = []
+        sizes = []
+        stats_s_c = dict()
+        stats_s_p = dict()
+        stats_s_v = dict()
+        stats_s_board = dict()
+    print(agent1.nnet)
 
     for it in range(NUM_ITERS):
         idx_new_eps = len(samples_s)
         for e in range(NUM_EPS):
-            s1, s2, s3 = executeEpisode(nnet_1)
+            agent1.mcts = MCTS()
+            s1, s2, s3 = executeEpisode(agent1)
             for i in range(len(s1)):
-                s = stateToString(s1[i])
+                s = stateToInt(s1[i])
                 if not s in stats_s_c:
                     stats_s_p[s] = s2[i]
                     stats_s_v[s] = s3[i]
@@ -152,7 +173,7 @@ def policyIter(load_path=None, save_path="edge_cnn_best_model_v4.pth",
             sizes.append(len(s1))
             if len(sizes) > MAX_GAMES_MEM:
                 for i in range(sizes[0]):
-                    s = stateToString(samples_s[i])
+                    s = stateToInt(samples_s[i])
                     assert (s in stats_s_c)
                     if stats_s_c[s] == 1:
                         del stats_s_p[s]
@@ -172,9 +193,9 @@ def policyIter(load_path=None, save_path="edge_cnn_best_model_v4.pth",
         if SAMPLE_SIZE < idx_new_eps:
             samples_unique = set()
             for i in random.sample([j for j in range(idx_new_eps)], SAMPLE_SIZE):
-                samples_unique.add(stateToString(samples_s[i]))
+                samples_unique.add(stateToInt(samples_s[i]))
             for i in range(idx_new_eps, len(samples_s)):
-                samples_unique.add(stateToString(samples_s[i]))
+                samples_unique.add(stateToInt(samples_s[i]))
         else:
             samples_unique = stats_s_c
 
@@ -184,16 +205,25 @@ def policyIter(load_path=None, save_path="edge_cnn_best_model_v4.pth",
             Y_v.append(stats_s_v[s])
             Y_p.append(stats_s_p[s])
 
-        print("It #: ", it)
-        nnet_2.run(torch.stack(X), torch.stack(Y_v), torch.stack(Y_p))
-        print("calculating pit rate...")
-        rate = get_win_percentage(nnet_2, nnet_1)
-        print("rate nnet2 vs nnet1: ", rate)
-        if rate > THRESHOLD:
-            nnet_1 = nnet_2
-            torch.save(nnet_1.state_dict(), save_path)
-            print("saving new model!!!!!!!")
+        save_obj(samples_s, work_path, "structures/samples_s")
+        save_obj(samples_dist, work_path, "structures/samples_dist")
+        save_obj(samples_v, work_path, "structures/samples_v")
+        save_obj(sizes, work_path, "structures/sizes")
+        save_obj(stats_s_c, work_path, "structures/stats_s_c")
+        save_obj(stats_s_p, work_path, "structures/stats_s_p")
+        save_obj(stats_s_v, work_path, "structures/stats_s_v")
+        save_obj(stats_s_board, work_path, "structures/stats_s_board")
 
-        torch.save(nnet_2.state_dict(), save_path_work)
-        nnet_2 = NNet("nnet2")
-        nnet_2.load_state_dict(torch.load(save_path_work))
+        print("It #: ", it)
+        agent2 = Agent("nnet2", device)
+        agent2.nnet.run(X, Y_v, Y_p)
+
+        agent1.mcts = MCTS()
+        print("calculating pit rate...")
+        rate, n = get_win_percentage(agent2, agent1)
+        print("rate nnet2 vs nnet1: ", rate, n)
+        if rate >= THRESHOLD:
+            agent1.nnet = agent2.nnet
+            torch.save(agent1.nnet.state_dict(), work_path + "/models/" + name_cnn_model)
+            print("new model saved!!!!!!!")
+
