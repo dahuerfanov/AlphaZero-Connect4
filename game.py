@@ -2,7 +2,6 @@ import torch
 
 from constants import ROWS, COLS, deltas
 
-
 def gameReward(s, ch=0):
     for i in range(ROWS):
         for j in range(COLS):
@@ -20,9 +19,9 @@ def gameReward(s, ch=0):
                             inARow = False
                             break
                     if inARow:
-                        return torch.tensor(1.), True
+                        return 1., True
 
-    return torch.tensor(0.), torch.sum(s) == ROWS * COLS
+    return 0., torch.sum(s) == ROWS * COLS
 
 
 def step(s, a, ch=0):
@@ -38,12 +37,14 @@ def step(s, a, ch=0):
 def reflect(s):
     return torch.flip(s.clone(), [2])
 
+def stateToInt(s):
+    a = 0
+    b = 0
+    for i in range(ROWS):
+        for j in range(COLS):
+            if s[0][i][j].item() != 0:
+                a += (1 << (j + i * COLS))
+            if s[1][i][j].item() != 0:
+                b += (1 << (j + i * COLS))
 
-def stateToString(s):
-    sStr = ""
-    for ch in range(2):
-        for i in range(ROWS):
-            for j in range(COLS):
-                sStr += str(int(s[ch][i][j]))
-
-    return sStr
+    return (a << (ROWS * COLS)) | b

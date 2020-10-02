@@ -8,20 +8,22 @@ Created on Mon Aug 31 01:17:44 2020
 
 import base64
 from io import BytesIO 
-import cPickle
+import zlib
 
 
 
-with open("cnn_best_model_v3.pth", "rb") as f:
-    byte = f.read(1)
+with open("C:\\Users\\Diego\\PycharmProjects\\kaggle-connectx\\cnn_best_model_v3.pth", "rb") as f:
+    print("prorprprp:", f.name)
+    teststr = zlib.compress(f.read()).encode('base64')
+    print(teststr)
 
 #zlib.compress(byte)
 # Base64 Encode the bytes
-data_e = base64.b64encode(byte)
+#data_e = base64.b64encode(byte)
 
 #filename ='base64_checkpoint.txt'
 
-print(data_e)
+##print(data_e)
 
 
 #with open(filename, "wb") as output:

@@ -5,7 +5,7 @@ import torch
 from scipy.stats import dirichlet
 
 from constants import COLS, ALPHA_N, EPS_N, C_PUCT
-from game import stateToString, gameReward, reflect, step
+from game import gameReward, reflect, step, stateToInt
 
 
 class MCTS:
@@ -18,7 +18,7 @@ class MCTS:
         self.P = dict()
         self.N = dict()
 
-    def search(self, s, nnet):
+    def search(self, s, nnet, c_puct=C_PUCT):
         """
          Returns:
             v: the negative of the value of the current state s
@@ -27,26 +27,15 @@ class MCTS:
         v, done = gameReward(s, 1)
         if done: return v
 
-        x = torch.stack([s]).detach()
-        # converting the data into GPU format
-        if torch.cuda.is_available():
-            x = x.cuda()
-
-            # ========forward pass=====================================
-        with torch.no_grad():
-            nnet.eval()
-            _v, _P = nnet(x)
-
-        P = _P[0].cpu()
-        v = _v[0].cpu()
-        s0 = stateToString(s)
+        v, P = nnet.predict(s)
+        s0 = stateToInt(s)
 
         if not s0 in self.N:
             self.Q[s0] = [0] * COLS
             self.N[s0] = np.array([0] * COLS)
-            self.P[s0] = P.numpy()
+            self.P[s0] = P
 
-            s1 = stateToString(reflect(s))
+            s1 = stateToInt(reflect(s))
             self.Q[s1] = self.Q[s0][::-1]
             self.N[s1] = self.N[s0][::-1]
             self.P[s1] = self.P[s0][::-1]
@@ -60,7 +49,7 @@ class MCTS:
             p_exploit = (1 - EPS_N) * self.P[s0][a] + EPS_N * noise[0][a]
 
             if s[0][0][a] + s[1][0][a] == 0:
-                u = self.Q[s0][a] + C_PUCT * p_exploit * total_sqr / (1 + self.N[s0][a])
+                u = self.Q[s0][a] + c_puct * p_exploit * total_sqr / (1 + self.N[s0][a])
                 if u > max_u:
                     max_u = u
                     best_a = a
@@ -78,7 +67,17 @@ class MCTS:
 
         return -v
 
-    def pi(self, s, requires_grad=False):
-        s0 = stateToString(s)
+    def pi(self, s, tau=1, requires_grad=False):
+
+        s0 = stateToInt(s)
         p = self.N[s0]
-        return torch.tensor(data=p / sum(self.N[s0]), requires_grad=requires_grad)
+        bestAs = np.array(np.argwhere(p == np.max(p))).flatten()
+        bestA = np.random.choice(bestAs)
+        if tau == 0:
+            p = [0] * COLS
+            p[bestA] = 1
+            return torch.tensor(data=p, requires_grad=requires_grad, device=torch.device("cpu"))
+        else:
+            counts = [x ** (1. / tau) for x in p]
+            counts_sum = sum(counts)
+            return torch.tensor(data=[x / counts_sum for x in counts], requires_grad=requires_grad, device=torch.device("cpu"))
