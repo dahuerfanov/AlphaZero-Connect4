@@ -80,4 +80,5 @@ class MCTS:
         else:
             counts = [x ** (1. / tau) for x in p]
             counts_sum = sum(counts)
-            return torch.tensor(data=[x / counts_sum for x in counts], requires_grad=requires_grad, device=torch.device("cpu"))
+            return torch.tensor(data=[x / counts_sum for x in counts], requires_grad=requires_grad,
+                                device=torch.device("cpu"))

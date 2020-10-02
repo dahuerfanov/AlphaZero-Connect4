@@ -1,5 +1,6 @@
-from AlphaZero import policyIter
 import torch
+
+from AlphaZero import policyIter
 
 # for GPU
 if torch.cuda.is_available():

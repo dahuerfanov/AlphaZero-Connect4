@@ -2,6 +2,7 @@ import torch
 
 from constants import ROWS, COLS, deltas
 
+
 def gameReward(s, ch=0):
     for i in range(ROWS):
         for j in range(COLS):
@@ -36,6 +37,7 @@ def step(s, a, ch=0):
 
 def reflect(s):
     return torch.flip(s.clone(), [2])
+
 
 def stateToInt(s):
     a = 0

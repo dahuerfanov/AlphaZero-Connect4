@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import torch
 # for creating validation set
 from sklearn.model_selection import train_test_split
-from torch.autograd import Variable
 # from torch.autograd import Variable
 from torch.nn import Linear, ReLU, Sequential, Conv2d, Module, Softmax, BatchNorm2d, \
     Dropout, Flatten, Tanh, MSELoss
@@ -63,7 +62,6 @@ class NNet(Module):
 
         self.optimizer = SGD(self.parameters(), lr=LR_SGD, momentum=MOMENTUM_SGD,
                              nesterov=True, weight_decay=WD_SGD)
-
 
     def forward(self, x):
         x0 = self.cnn_layers(x)
@@ -139,7 +137,8 @@ class NNet(Module):
             div_train = 0
             total_train = 0
             for batch_idx, (S, V, P) in enumerate(trainloader):
-                S, V, P = S.to(self.device).requires_grad_(), V.to(self.device).requires_grad_(), P.to(self.device).requires_grad_()
+                S, V, P = S.to(self.device).requires_grad_(), V.to(self.device).requires_grad_(), P.to(
+                    self.device).requires_grad_()
                 div_train += 1
                 total_train += V.size(0)
                 loss_v_tr_, loss_p_train_, acc_v_tr_ = self.train_batch(S, V, P)
@@ -150,7 +149,8 @@ class NNet(Module):
             div_val = 0
             total_val = 0
             for batch_idx, (S, V, P) in enumerate(testloader):
-                S, V, P = S.to(self.device).requires_grad_(False), V.to(self.device).requires_grad_(False), P.to(self.device).requires_grad_(False)
+                S, V, P = S.to(self.device).requires_grad_(False), V.to(self.device).requires_grad_(False), P.to(
+                    self.device).requires_grad_(False)
                 div_val += 1
                 total_val += V.size(0)
                 loss_v_val_, loss_p_val_, acc_v_val_ = self.validate(S, V, P)

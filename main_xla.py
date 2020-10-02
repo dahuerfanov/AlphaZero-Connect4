@@ -1,9 +1,7 @@
-from AlphaZero import policyIter
-import torch
 # for TPU
-import torch_xla
 import torch_xla.core.xla_model as xm
 
+from AlphaZero import policyIter
 
 device = device = xm.xla_device()
 print("Using TPU!")

@@ -1,8 +1,11 @@
 import random
-import torch
+
 import numpy as np
+import torch
+
 from NNet import NNet
-from constants import ROWS, COLS, NUM_MCTS_SIMS, NUM_EPS, NUM_ITERS, MAX_GAMES_MEM, SAMPLE_SIZE, THRESHOLD, NUM_EPS_PIT, N_THRESHOLD_EXP
+from constants import ROWS, COLS, NUM_MCTS_SIMS, NUM_EPS, NUM_ITERS, MAX_GAMES_MEM, SAMPLE_SIZE, THRESHOLD, NUM_EPS_PIT, \
+    N_THRESHOLD_EXP
 from game import gameReward, step, reflect, stateToInt
 from mcts import MCTS
 from utils import save_obj, load_obj
@@ -122,11 +125,7 @@ def executeEpisode(agent):
             s = torch.flip(s, [0])
 
 
-
-
-
 def policyIter(work_path, load_path_model=None, name_cnn_model="nnet", device=torch.device('cpu')):
-
     random.seed(0)
     agent1 = Agent(name_cnn_model, device)
     if load_path_model != None:
@@ -226,4 +225,3 @@ def policyIter(work_path, load_path_model=None, name_cnn_model="nnet", device=to
             agent1.nnet = agent2.nnet
             torch.save(agent1.nnet.state_dict(), work_path + "/models/" + name_cnn_model)
             print("new model saved!!!!!!!")
-
