@@ -1,8 +1,7 @@
 import torch
 from torch import Tensor
 
-from constants import EPS
-
+EPS = 1e-6
 
 class _Loss(torch.nn.Module):
 

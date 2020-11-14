@@ -4,52 +4,52 @@ import numpy as np
 import torch
 from scipy.stats import dirichlet
 
-from constants import COLS, ALPHA_N, EPS_N, C_PUCT
 from game import gameReward, reflect, step, stateToInt
 
 
 class MCTS:
 
-    def __init__(self):
+    def __init__(self, args):
         self.clear()
+        self.args = args
 
     def clear(self):
         self.Q = dict()
         self.P = dict()
         self.N = dict()
 
-    def search(self, s, nnet, c_puct=C_PUCT):
+    def search(self, s, nnet):
         """
          Returns:
             v: the negative of the value of the current state s
         """
 
-        v, done = gameReward(s, 1)
+        v, done = gameReward(s, 1, self.args)
         if done: return v
 
         v, P = nnet.predict(s)
-        s0 = stateToInt(s)
+        s0 = stateToInt(s, self.args)
 
         if not s0 in self.N:
-            self.Q[s0] = [0] * COLS
-            self.N[s0] = np.array([0] * COLS)
+            self.Q[s0] = [0] * self.cols
+            self.N[s0] = np.array([0] * self.cols)
             self.P[s0] = P
 
-            s1 = stateToInt(reflect(s))
+            s1 = stateToInt(reflect(s), self.args)
             self.Q[s1] = self.Q[s0][::-1]
             self.N[s1] = self.N[s0][::-1]
             self.P[s1] = self.P[s0][::-1]
 
             return -v
 
-        noise = dirichlet.rvs(np.array([ALPHA_N] * COLS), size=1)
+        noise = dirichlet.rvs(np.array([self.alpha_n] * self.cols), size=1)
 
         max_u, best_a, total_sqr = -1e10, -1, math.sqrt(sum(self.N[s0]))
-        for a in range(COLS):
-            p_exploit = (1 - EPS_N) * self.P[s0][a] + EPS_N * noise[0][a]
+        for a in range(self.cols):
+            p_exploit = (1 - self.eps_n) * self.P[s0][a] + self.eps_n * noise[0][a]
 
             if s[0][0][a] + s[1][0][a] == 0:
-                u = self.Q[s0][a] + c_puct * p_exploit * total_sqr / (1 + self.N[s0][a])
+                u = self.Q[s0][a] + self.c_puct * p_exploit * total_sqr / (1 + self.N[s0][a])
                 if u > max_u:
                     max_u = u
                     best_a = a
@@ -57,7 +57,7 @@ class MCTS:
                 self.Q[s0][a] = -1
 
         a = best_a
-        row = step(s, a)
+        row = step(s, a, 0, self.args)
         assert (row >= 0)
         v = self.search(torch.flip(s, [0]), nnet)
         s[0][row][a] = 0  # step back
@@ -69,12 +69,12 @@ class MCTS:
 
     def pi(self, s, tau=1, requires_grad=False):
 
-        s0 = stateToInt(s)
+        s0 = stateToInt(s, self.args)
         p = self.N[s0]
         bestAs = np.array(np.argwhere(p == np.max(p))).flatten()
         bestA = np.random.choice(bestAs)
         if tau == 0:
-            p = [0] * COLS
+            p = [0] * self.cols
             p[bestA] = 1
             return torch.tensor(data=p, requires_grad=requires_grad, device=torch.device("cpu"))
         else:

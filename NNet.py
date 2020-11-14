@@ -10,47 +10,49 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 
 from CategoricalCrossEntropy import CategoricalCrossEntropy
-from constants import LR_SGD, MOMENTUM_SGD, WD_SGD, ROWS, COLS, BATCH, EPOCHS
 
 
 class NNet(Module):
 
-    def __init__(self, name, device):
+    def __init__(self, name, device, args):
         super(NNet, self).__init__()
 
         self.name = name
         self.device = device
+        self.args = args
         self.cnn_layers = Sequential(
-            Conv2d(in_channels=2, out_channels=128, kernel_size=3, stride=1, padding=1),
-            BatchNorm2d(num_features=128, momentum=0.1),
+            Conv2d(in_channels=2, out_channels=args.num_channels_cnn, kernel_size=3, stride=1, padding=1),
+            BatchNorm2d(num_features=args.num_channels_cnn, momentum=0.1),
             ReLU(inplace=True),
-            Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1),
-            BatchNorm2d(num_features=128, momentum=0.1),
+            Conv2d(in_channels=args.num_channels_cnn, out_channels=args.num_channels_cnn, kernel_size=3, stride=1,
+                   padding=1),
+            BatchNorm2d(num_features=args.num_channels_cnn, momentum=0.1),
             ReLU(inplace=True),
-            Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1),
-            BatchNorm2d(num_features=128, momentum=0.1),
+            Conv2d(in_channels=args.num_channels_cnn, out_channels=args.num_channels_cnn, kernel_size=3, stride=1,
+                   padding=1),
+            BatchNorm2d(num_features=args.num_channels_cnn, momentum=0.1),
             ReLU(inplace=True)
         )
 
         self.v_layers = Sequential(
-            Conv2d(in_channels=128, out_channels=4, kernel_size=1, stride=1, padding=0),
+            Conv2d(in_channels=args.num_channels_cnn, out_channels=4, kernel_size=1, stride=1, padding=0),
             BatchNorm2d(num_features=4, momentum=0.1),
             ReLU(inplace=True),
             Flatten(),
-            Linear(in_features=4 * ROWS * COLS, out_features=32),
-            Dropout(p=0.3, inplace=True),
+            Linear(in_features=4 * args.rows * args.cols, out_features=32),
+            Dropout(p=0.45, inplace=True),
             ReLU(inplace=True),
             Linear(in_features=32, out_features=1),
             Tanh()
         )
 
         self.p_layers = Sequential(
-            Conv2d(in_channels=128, out_channels=8, kernel_size=1, stride=1, padding=0),
+            Conv2d(in_channels=args.num_channels_cnn, out_channels=8, kernel_size=1, stride=1, padding=0),
             BatchNorm2d(num_features=8, momentum=0.1),
             ReLU(inplace=True),
             Flatten(),
-            Linear(in_features=8 * ROWS * COLS, out_features=COLS),
-            Softmax(dim=1),
+            Linear(in_features=8 * args.rows * args.cols, out_features=args.cols),
+            Softmax(dim=1)
         )
 
         self.criterion_p = CategoricalCrossEntropy()
@@ -60,8 +62,8 @@ class NNet(Module):
         self.criterion_p = self.criterion_p.to(device)
         self.criterion_v = self.criterion_v.to(device)
 
-        self.optimizer = SGD(self.parameters(), lr=LR_SGD, momentum=MOMENTUM_SGD,
-                             nesterov=True, weight_decay=WD_SGD)
+        self.optimizer = SGD(self.parameters(), lr=args.lr_sgd, momentum=args.momentum_sgd,
+                             nesterov=True, weight_decay=args.wd_sgd)
 
     def forward(self, x):
         x0 = self.cnn_layers(x)
@@ -119,8 +121,8 @@ class NNet(Module):
             sim_data.append([X[i], Y_v[i], Y_p[i]])
         trainset, testset = train_test_split(sim_data, test_size=0.2)
 
-        trainloader = DataLoader(dataset=trainset, batch_size=BATCH, shuffle=True)
-        testloader = DataLoader(dataset=testset, batch_size=BATCH, shuffle=True)
+        trainloader = DataLoader(dataset=trainset, batch_size=self.args.batch, shuffle=True)
+        testloader = DataLoader(dataset=testset, batch_size=self.args.batch, shuffle=True)
 
         v_train_losses = []
         p_train_losses = []
@@ -131,7 +133,7 @@ class NNet(Module):
         v_val_acc = []
 
         # training the model
-        for _ in range(EPOCHS):
+        for _ in range(self.args.epochs):
             loss_v_tr, loss_p_train, loss_v_val, loss_p_val = 0, 0, 0, 0
             acc_v_tr, acc_v_val = 0, 0
             div_train = 0
