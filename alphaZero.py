@@ -70,7 +70,7 @@ def get_win_percentage(agent1, agent2, args):
             tot += 1
 
     for _ in range(args.num_eps_pit // 2, args.num_eps_pit):
-        sg = simulateEpisode(agent2, agent1)
+        sg = simulateEpisode(agent2, agent1, args)
         count += max(-sg, 0)
         if sg != 0:
             tot += 1
@@ -124,7 +124,7 @@ def selfPlay(agent, args):
 
 def policyIter(work_path, load_model_path, name_cnn_model, device, args):
     random.seed(0)
-    agent1 = Agent(name_cnn_model, device)
+    agent1 = Agent(name_cnn_model, device, args)
     # when a model path is provided (for continuous learning), we assume stats and boards of previous simulations will
     # be provided under the same directory:
     if load_model_path != None:
@@ -153,7 +153,7 @@ def policyIter(work_path, load_model_path, name_cnn_model, device, args):
     for it in range(args.num_iters):
         idx_new_eps = len(samples_s)
         for e in range(args.num_eps):
-            agent1.mcts = MCTS()
+            agent1.mcts = MCTS(args)
             s1, s2, s3 = selfPlay(agent1, args)
             for i in range(len(s1)):
                 s = stateToInt(s1[i], args)
@@ -224,7 +224,7 @@ def policyIter(work_path, load_model_path, name_cnn_model, device, args):
         agent2 = Agent("nnet2", device, args)
         agent2.nnet.run(X, Y_v, Y_p)  # cnn training
 
-        agent1.mcts = MCTS()
+        agent1.mcts = MCTS(args)
         print("calculating pit rate...")
         rate, n = get_win_percentage(agent2, agent1, args)
         print("rate nnet2 vs nnet1: ", rate, n)

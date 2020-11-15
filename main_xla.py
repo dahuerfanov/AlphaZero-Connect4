@@ -2,7 +2,7 @@
 import torch_xla.core.xla_model as xm
 from dotdict import DotDict
 
-from AlphaZero import policyIter
+from alphaZero import policyIter
 
 args = DotDict({
     'rows': 6,                  # number of board rows

@@ -3,6 +3,7 @@ from torch import Tensor
 
 EPS = 1e-6
 
+
 class _Loss(torch.nn.Module):
 
     def __init__(self) -> None:
